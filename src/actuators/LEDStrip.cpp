@@ -45,7 +45,12 @@ uint32_t LEDStrip::blink(int position) {
                                      : strip.Color(0, 0, 0);
 }
 
-uint32_t LEDStrip::colorWipe(uint32_t color, int position) { return color; }
+uint32_t LEDStrip::colorWipe(uint32_t color, int position) {
+    if (position < strip.numPixels()) {
+        strip.setPixelColor(position, color);
+    }
+    return color;
+}
 
 uint32_t LEDStrip::theaterChase(uint32_t color, int position) {
     return (position % 3 == 0) ? color : strip.Color(0, 0, 0);
