@@ -6,14 +6,9 @@ GasSensor::GasSensor(uint8_t aoPin, uint8_t doPin)
 
 void GasSensor::begin() { pinMode(doPin, INPUT); }
 
-void GasSensor::read(Buzzer buzzer) {
+void GasSensor::read() {
     gasValue = analogRead(aoPin);
     gasDetected = !digitalRead(doPin);
-    if (gasDetected) {
-        buzzer.on();
-    } else {
-        buzzer.off();
-    }
 }
 
 int GasSensor::getGasValue() const { return gasValue; }

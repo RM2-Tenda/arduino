@@ -105,6 +105,7 @@ void LEDStrip::updateLEDs() {
             break;
         default:
             color = strip.Color(0, 0, 0); // Off
+            strip.clear();
             break;
         }
         strip.setPixelColor(i, color);
@@ -116,6 +117,4 @@ void LEDStrip::updateLEDs() {
 void LEDStrip::setPattern(uint8_t newPattern) {
     pattern = newPattern;
     currentLED = 0;
-    // Serial.print("Pattern set to: ");
-    // Serial.println(pattern);
 }

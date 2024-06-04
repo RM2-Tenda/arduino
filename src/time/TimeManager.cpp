@@ -1,5 +1,5 @@
 #include "TimeManager.h"
-#include "sensors/PresenceSensor.h" // Include PresenceSensor
+#include "sensors/PresenceSensor.h"
 
 void TimeManager::begin() {
     alarmCount = 0;
@@ -30,8 +30,10 @@ void TimeManager::setAlarm(const String &sensor, const String &condition,
     }
 }
 
-void TimeManager::checkAlarms(Buzzer &buzzer, DHTSensor &dht, GasSensor &gas,
-                              UVSensor &uv, PresenceSensor &presence) {
+void TimeManager::checkAlarms(Buzzer &buzzer, Fan &fan, DHTSensor &dht,
+                              GasSensor &gas, UVSensor &uv,
+                              PresenceSensor &presence) {
+    anyAlarmTriggered = false;
     time_t now = currentTime + millis() / 1000;
     struct tm *timeinfo = localtime(&now);
     for (int i = 0; i < alarmCount; i++) {
@@ -92,11 +94,16 @@ void TimeManager::checkAlarms(Buzzer &buzzer, DHTSensor &dht, GasSensor &gas,
             }
 
             if (trigger) {
-                buzzer.on();
+                Serial.println("Alarm triggered: " + alarms[i].sensor);
+                buzzer.setState(true);
+                fan.setState(true);
+                anyAlarmTriggered = true;
             }
         }
     }
 }
+
+bool TimeManager::isAnyAlarmTriggered() const { return anyAlarmTriggered; }
 
 bool TimeManager::isCurrentTimeInRange(const String &startTime,
                                        const String &endTime) {

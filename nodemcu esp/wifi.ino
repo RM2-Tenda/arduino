@@ -154,11 +154,7 @@ void sendCommandToSerial(String command) {
     DynamicJsonDocument doc(1024);
     deserializeJson(doc, command);
     String cmd = doc["command"];
-    String comparison = doc["comparison"];
-    Serial.print("COMMAND ");
     Serial.print(cmd);
-    Serial.print(" COMPARISON ");
-    Serial.println(comparison);
 }
 
 void syncTimeWithArduino() {

@@ -8,7 +8,7 @@ class GasSensor {
   public:
     GasSensor(uint8_t aoPin, uint8_t doPin);
     void begin();
-    void read(Buzzer buzzer);
+    void read();
     int getGasValue() const;
     bool isGasDetected() const;
     void setThreshold(int threshold);

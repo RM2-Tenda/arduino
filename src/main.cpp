@@ -10,7 +10,7 @@
 #include "sensors/UVSensor.h"
 #include "time/TimeManager.h"
 #include <Arduino.h>
-#include <MemoryFree.h> // Include the MemoryFree library
+#include <MemoryFree.h>
 #include <avr/pgmspace.h>
 
 SerialComm serialComm;
@@ -75,11 +75,10 @@ void loop() {
 
     if (currentTime - lastGasReadTime >= 500) {
         lastGasReadTime = currentTime;
-        gas.read(buzzer);
+        gas.read();
     }
 
-    if (currentTime - lastPresenceReadTime >=
-        1000) { // Read Presence every 1 second
+    if (currentTime - lastPresenceReadTime >= 1000) {
         lastPresenceReadTime = currentTime;
         presence.read();
     }
@@ -105,5 +104,17 @@ void loop() {
         ledStrip.updatePattern();
     }
 
-    timeManager.checkAlarms(buzzer, dht, gas, uv, presence);
+    if (gas.isGasDetected()) {
+        buzzer.setState(true);
+        fan.setState(true);
+    } else {
+        fan.setState(false);
+    }
+
+    timeManager.checkAlarms(buzzer, fan, dht, gas, uv, presence);
+
+    if (!gas.isGasDetected() && !timeManager.isAnyAlarmTriggered()) {
+        buzzer.setState(false);
+        fan.setState(false);
+    }
 }

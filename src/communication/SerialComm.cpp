@@ -2,7 +2,7 @@
 
 void SerialComm::begin() {
     Serial.begin(9600);
-    Serial.setTimeout(2000); // Increase timeout to ensure full command is read
+    Serial.setTimeout(2000);
 }
 
 void SerialComm::sendData(const DHTSensor &dht, const GPSSensor &gps,
@@ -67,14 +67,18 @@ void SerialComm::processCommand(const String &command, LEDStrip &ledStrip,
     } else if (cmdType == "SET_BUZZER") {
         if (params == "ON") {
             buzzer.on();
+            buzzer.setCommandState(true);
         } else if (params == "OFF") {
             buzzer.off();
+            buzzer.setCommandState(false);
         }
     } else if (cmdType == "SET_FAN") {
         if (params == "ON") {
             fan.on();
+            fan.setCommandState(true);
         } else if (params == "OFF") {
             fan.off();
+            fan.setCommandState(false);
         }
     } else if (cmdType == "SET_DHT_THRESHOLD") {
         int commaIndex2 = params.indexOf(',');
@@ -88,7 +92,6 @@ void SerialComm::processCommand(const String &command, LEDStrip &ledStrip,
         int uvThreshold = params.toInt();
         uv.setThreshold(uvThreshold);
     } else if (cmdType == "SET_ALARM") {
-        // Parse additional fields for comparison and value
         int commaIndex2 = params.indexOf(',');
         String sensor = params.substring(0, commaIndex2);
         params = params.substring(commaIndex2 + 1);
@@ -113,6 +116,9 @@ void SerialComm::processCommand(const String &command, LEDStrip &ledStrip,
         String startTime = params.substring(0, commaIndex2);
         String endTime = params.substring(commaIndex2 + 1);
 
+        Serial.println("Setting alarm with params: " + sensor + ", " +
+                       condition + ", " + comparison + ", " + String(value) +
+                       ", " + days + ", " + startTime + ", " + endTime);
         timeManager.setAlarm(sensor, condition, comparison, value, days,
                              startTime, endTime);
     }
