@@ -24,19 +24,12 @@ PresenceSensor presence(PRESENCE_PIN);
 UVSensor uv(UV_SENSOR_PIN);
 TimeManager timeManager;
 
-const char str1[] PROGMEM = "Free memory: ";
-const char str2[] PROGMEM = "Reading DHT sensor";
-const char str3[] PROGMEM = "Reading GPS sensor";
-const char str4[] PROGMEM = "Reading Gas sensor";
-const char str5[] PROGMEM = "Reading Presence sensor";
-const char str6[] PROGMEM = "Reading UV sensor";
-const char str7[] PROGMEM = "Checking alarms";
-const char str8[] PROGMEM = "Sending data";
-const char str9[] PROGMEM = "Receiving commands";
-const char str10[] PROGMEM = "Controlling LEDs";
-const char str11[] PROGMEM = "Loop complete";
-
 void setup() {
+    Serial.begin(9600);
+    Serial.println(F("Setup started"));
+    Serial.print(F("Free memory: "));
+    Serial.println(freeMemory());
+
     serialComm.begin();
     buzzer.begin();
     fan.begin();
@@ -48,10 +41,17 @@ void setup() {
     uv.begin();
     timeManager.begin();
     ledStrip.setPattern(0);
+
+    Serial.println(F("Setup complete"));
 }
 
 void loop() {
-    timeManager.setTime("2024-06-04 10:00:00");
+    static bool firstLoop = true;
+    if (firstLoop) {
+        Serial.println(F("First loop iteration"));
+        firstLoop = false;
+    }
+
     static unsigned long lastDHTReadTime = 0;
     static unsigned long lastGPSReadTime = 0;
     static unsigned long lastGasReadTime = 0;
@@ -95,8 +95,8 @@ void loop() {
 
     if (currentTime - lastReceiveCommandsTime >= 1000) {
         lastReceiveCommandsTime = currentTime;
-        serialComm.receiveCommands(ledStrip, buzzer, fan, dht, gas, uv,
-                                   timeManager);
+        // Serial.println(F("Checking for received commands...")); // Debug print
+        serialComm.receiveCommands(ledStrip, buzzer, fan, dht, gas, uv, timeManager);
     }
 
     if (currentTime - lastLEDUpdateTime >= 50) {
@@ -110,7 +110,6 @@ void loop() {
     } else {
         fan.setState(false);
     }
-
     timeManager.checkAlarms(buzzer, fan, dht, gas, uv, presence);
 
     if (!gas.isGasDetected() && !timeManager.isAnyAlarmTriggered()) {

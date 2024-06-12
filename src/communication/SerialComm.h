@@ -22,12 +22,12 @@ class SerialComm {
     void receiveCommands(LEDStrip &ledStrip, Buzzer &buzzer, Fan &fan,
                          DHTSensor &dht, GasSensor &gas, UVSensor &uv,
                          TimeManager &timeManager);
-    void setCustomColor(uint32_t color);
 
   private:
-    void processCommand(const String &command, LEDStrip &ledStrip,
+    void processCommand(const char* command, LEDStrip &ledStrip,
                         Buzzer &buzzer, Fan &fan, DHTSensor &dht,
                         GasSensor &gas, UVSensor &uv, TimeManager &timeManager);
+    const char* getNextParam(const char* params, int &startIndex);
     unsigned long lastSendTime;
     const unsigned long sendInterval = 1000;
 };

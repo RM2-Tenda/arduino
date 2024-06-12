@@ -2,56 +2,41 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include <time.h>
-#include <map>
+#include "TimeManager.h"
 
 const char *ssid = "miPhone";
 const char *password = "12345678";
 String serverName = "http://rm2-backend-f78fbf915aa5.herokuapp.com/api/button";
-String statisticsAPI = "http://rm2-backend-f78fbf915aa5.herokuapp.com/api/statistics";
-String commandAPI = "http://rm2-backend-f78fbf915aa5.herokuapp.com/api/commands";
-String clearCommandAPI = "http://rm2-backend-f78fbf915aa5.herokuapp.com/api/commands/clear";
-String alarmsAPI = "http://rm2-backend-f78fbf915aa5.herokuapp.com/api/alarms";
+String statisticsAPI =
+    "http://rm2-backend-f78fbf915aa5.herokuapp.com/api/statistics";
+String commandAPI =
+    "http://rm2-backend-f78fbf915aa5.herokuapp.com/api/commands";
+String clearCommandAPI =
+    "http://rm2-backend-f78fbf915aa5.herokuapp.com/api/commands/clear";
+String alarmsAPI =
+    "http://rm2-backend-f78fbf915aa5.herokuapp.com/api/alarms";
 String deviceID = "device_001";
 
 unsigned long lastButtonCheck = 0;
-unsigned long buttonCheckDelay = 2000;
+unsigned long buttonCheckDelay = 1500;
 unsigned long lastTimeSync = 0;
 unsigned long timeSyncDelay = 60000;
 unsigned long lastCommandCheck = 0;
-unsigned long commandCheckDelay = 1000;
+unsigned long commandCheckDelay = 5000; // Check for commands every 5 seconds
 unsigned long lastAlarmCheck = 0;
-unsigned long alarmCheckDelay = 1200;
+unsigned long alarmCheckDelay = 5000; // Check for alarms every 5 seconds
 
 int ledPin = D2;
 
 struct Alarm {
     int id;
-    String sensor;
-    String condition;
-    String comparison;
+    SensorType sensor;
+    ConditionType condition;
+    ComparisonType comparison;
     float value;
     uint8_t daysBitmask;
     uint16_t startMinutes;
     uint16_t endMinutes;
-};
-
-std::map<String, int> sensorTypeMapping = {
-    {"TEMP", 0},
-    {"HUM", 1},
-    {"GAS", 2},
-    {"UV", 3},
-    {"MOTION", 4}
-};
-
-std::map<String, int> conditionTypeMapping = {
-    {"VALUE", 0},
-    {"DETECTED", 1}
-};
-
-std::map<String, int> comparisonTypeMapping = {
-    {"ABOVE", 0},
-    {"BELOW", 1},
-    {"EQUAL", 2}
 };
 
 std::vector<Alarm> activeAlarms;
@@ -65,7 +50,7 @@ void setup() {
         Serial.print(".");
     }
     Serial.println("WiFi connected.");
-    Serial.print("IP address: ");
+    Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
 
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
@@ -78,7 +63,6 @@ void loop() {
             String data = Serial.readStringUntil('\n');
             parseAndSendData(data);
         }
-        lastButtonCheck = millis();
     }
 
     if (millis() - lastTimeSync > timeSyncDelay) {
@@ -164,12 +148,10 @@ void sendDataToServer(float humidity, float temperature, bool presenceValue,
 
         if (httpResponseCode > 0) {
             String response = http.getString();
-            Serial.print("Data sent: ");
-            response.trim();
-            Serial.println(response);
+            // Serial.println(response);
         } else {
             Serial.print("Error code: ");
-            Serial.println(httpResponseCode);
+             Serial.println(httpResponseCode);
         }
         http.end();
     } else {
@@ -186,15 +168,12 @@ void checkForCommands() {
 
         if (httpResponseCode > 0) {
             String payload = http.getString();
-            if (payload.length() > 0) {
-                processCommands(payload);
-                clearCommands();
-            } else {
-                Serial.println("No commands received.");
-            }
+            // Serial.println("Received command: " + payload);
+            processCommands(payload);
+            clearCommands();
         } else {
-            Serial.print("Error code: ");
-            Serial.println(httpResponseCode);
+            Serial.println("Error code: ");
+             Serial.println(httpResponseCode);
         }
         http.end();
     } else {
@@ -202,17 +181,11 @@ void checkForCommands() {
     }
 }
 
-void processCommands(String command) {
-    if (command.length() == 0) {
-        return; // Skip processing if the command is empty
-    }
-
-    DynamicJsonDocument doc(512);
-    deserializeJson(doc, command);
+void processCommands(String commands) {
+    DynamicJsonDocument doc(1024);
+    deserializeJson(doc, commands);
     String cmd = doc["command"];
-    if (cmd.length() > 0) {
-      Serial.println(cmd);
-    }
+    Serial.println(cmd);
 }
 
 void clearCommands() {
@@ -234,7 +207,7 @@ void clearCommands() {
             // Serial.println(response);
         } else {
             Serial.print("Error code: ");
-            Serial.println(httpResponseCode);
+             Serial.println(httpResponseCode);
         }
         http.end();
     } else {
@@ -251,14 +224,11 @@ void checkForAlarms() {
 
         if (httpResponseCode > 0) {
             String payload = http.getString();
-            if (payload.length() > 0) {
-                processAlarms(payload);
-            } else {
-                Serial.println("No alarms received.");
-            }
+            // Serial.println("Received alarms: " + payload);
+            processAlarms(payload);
         } else {
-            Serial.print("Error code: ");
-            Serial.println(httpResponseCode);
+            Serial.println("Error code: ");
+             Serial.println(httpResponseCode);
         }
         http.end();
     } else {
@@ -267,10 +237,6 @@ void checkForAlarms() {
 }
 
 void processAlarms(String alarms) {
-    if (alarms.length() == 0) {
-        Serial.println("No alarms received.");
-        return;
-    }
     DynamicJsonDocument doc(2048);
     deserializeJson(doc, alarms);
     JsonArray alarmsArray = doc["alarms"].as<JsonArray>();
@@ -278,9 +244,9 @@ void processAlarms(String alarms) {
     std::vector<int> receivedAlarmIds;
     for (JsonObject alarm : alarmsArray) {
         int id = alarm["id"];
-        String sensor = alarm["sensor"];
-        String condition = alarm["condition"];
-        String comparison = alarm["comparison"];
+        SensorType sensor = static_cast<SensorType>(alarm["sensor"].as<int>());
+        ConditionType condition = static_cast<ConditionType>(alarm["condition"].as<int>());
+        ComparisonType comparison = static_cast<ComparisonType>(alarm["comparison"].as<int>());
         float value = alarm["value"];
         String days = alarm["days"];
         String startTime = alarm["start_time"];
@@ -311,15 +277,13 @@ void processAlarms(String alarms) {
                 break;
             }
         }
+
         // If the alarm is not active, add it
         if (!isActive) {
             activeAlarms.push_back(newAlarm);
-            String alarmCommand = "SET_ALARM," + String(sensorTypeMapping[sensor]) + "," +
-                              String(conditionTypeMapping[condition]) + "," +
-                              String(comparisonTypeMapping[comparison]) + "," +
-                              String(value) + "," + String(daysBitmask) + "," +
-                              String(startMinutes) + "," + String(endMinutes);
-
+            String alarmCommand = "SET_ALARM," + String(sensor) + "," + String(condition) + "," +
+                                  String(comparison) + "," + String(value) + "," + String(daysBitmask) +
+                                  "," + String(startMinutes) + "," + String(endMinutes);
             Serial.println(alarmCommand);
         }
     }
@@ -350,7 +314,7 @@ void syncTimeWithArduino() {
     if (timeinfo) {
         char timeString[20];
         strftime(timeString, sizeof(timeString), "%Y-%m-%d %H:%M:%S", timeinfo);
-        Serial.print("TIME_SYNC ");
+        Serial.print("SET_TIME,");
         Serial.println(timeString);
     }
 }

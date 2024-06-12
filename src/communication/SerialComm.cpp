@@ -39,87 +39,98 @@ void SerialComm::receiveCommands(LEDStrip &ledStrip, Buzzer &buzzer, Fan &fan,
                                  DHTSensor &dht, GasSensor &gas, UVSensor &uv,
                                  TimeManager &timeManager) {
     while (Serial.available() > 0) {
-        String command = Serial.readStringUntil('\n');
-        processCommand(command, ledStrip, buzzer, fan, dht, gas, uv,
-                       timeManager);
+        char command[100];
+        int bytesRead = Serial.readBytesUntil('\n', command, sizeof(command) - 1);
+        command[bytesRead] = '\0';
+        processCommand(command, ledStrip, buzzer, fan, dht, gas, uv, timeManager);
     }
 }
 
-void SerialComm::processCommand(const String &command, LEDStrip &ledStrip,
+void SerialComm::processCommand(const char* command, LEDStrip &ledStrip,
                                 Buzzer &buzzer, Fan &fan, DHTSensor &dht,
                                 GasSensor &gas, UVSensor &uv,
                                 TimeManager &timeManager) {
-    int commaIndex = command.indexOf(',');
-    String cmdType = command.substring(0, commaIndex);
-    String params = command.substring(commaIndex + 1);
+    // Serial.print(F("Processing command: "));
+    // Serial.println(command);
 
-    if (cmdType == "SET_LED_PATTERN") {
-        int commaIndex2 = params.indexOf(',');
-        uint8_t pattern = params.substring(0, commaIndex2).toInt();
-        if (pattern == 9) {
-            String colorHex = params.substring(commaIndex2 + 1);
-            long color = strtol(colorHex.c_str(), NULL, 16);
+    const char* commaPos = strchr(command, ',');
+    if (commaPos == nullptr) {
+        // Serial.println(F("Invalid command format"));
+        return;
+    }
+
+    int commaIndex = commaPos - command;
+    char cmdType[20];
+    strncpy(cmdType, command, commaIndex);
+    cmdType[commaIndex] = '\0';
+    const char* params = command + commaIndex + 1;
+
+    if (strcmp(cmdType, "SET_LED_PATTERN") == 0) {
+        const char* commaPos2 = strchr(params, ',');
+        int commaIndex2 = commaPos2 ? commaPos2 - params : -1;
+        uint8_t pattern = atoi(params);
+        if (pattern == 9 && commaIndex2 != -1) {
+            const char* colorHex = params + commaIndex2 + 1;
+            long color = strtol(colorHex, NULL, 16);
             ledStrip.setCustomColor(color);
         } else {
             ledStrip.setPattern(pattern);
         }
         ledStrip.updatePattern();
-    } else if (cmdType == "SET_BUZZER") {
-        if (params == "ON") {
+    } else if (strcmp(cmdType, "SET_BUZZER") == 0) {
+        if (strcmp(params, "ON") == 0) {
             buzzer.on();
             buzzer.setCommandState(true);
-        } else if (params == "OFF") {
+        } else if (strcmp(params, "OFF") == 0) {
             buzzer.off();
             buzzer.setCommandState(false);
         }
-    } else if (cmdType == "SET_FAN") {
-        if (params == "ON") {
+    } else if (strcmp(cmdType, "SET_FAN") == 0) {
+        if (strcmp(params, "ON") == 0) {
             fan.on();
             fan.setCommandState(true);
-        } else if (params == "OFF") {
+        } else if (strcmp(params, "OFF") == 0) {
             fan.off();
             fan.setCommandState(false);
         }
-    } else if (cmdType == "SET_DHT_THRESHOLD") {
-        int commaIndex2 = params.indexOf(',');
-        float tempThreshold = params.substring(0, commaIndex2).toFloat();
-        float humThreshold = params.substring(commaIndex2 + 1).toFloat();
+    } else if (strcmp(cmdType, "SET_DHT_THRESHOLD") == 0) {
+        const char* commaPos2 = strchr(params, ',');
+        if (commaPos2 == nullptr) {
+            // Serial.println(F("Invalid DHT threshold format"));
+            return;
+        }
+        int commaIndex2 = commaPos2 - params;
+        float tempThreshold = atof(params);
+        float humThreshold = atof(params + commaIndex2 + 1);
         dht.setThresholds(tempThreshold, humThreshold);
-    } else if (cmdType == "SET_GAS_THRESHOLD") {
-        int gasThreshold = params.toInt();
+    } else if (strcmp(cmdType, "SET_GAS_THRESHOLD") == 0) {
+        int gasThreshold = atoi(params);
         gas.setThreshold(gasThreshold);
-    } else if (cmdType == "SET_UV_THRESHOLD") {
-        int uvThreshold = params.toInt();
+    } else if (strcmp(cmdType, "SET_UV_THRESHOLD") == 0) {
+        int uvThreshold = atoi(params);
         uv.setThreshold(uvThreshold);
-    } else if (cmdType == "SET_ALARM") {
-        int commaIndex2 = params.indexOf(',');
-        String sensor = params.substring(0, commaIndex2);
-        params = params.substring(commaIndex2 + 1);
+    } else if (strcmp(cmdType, "SET_ALARM") == 0) {
+        int paramIndex = 0;
+        SensorType sensor = static_cast<SensorType>(atoi(getNextParam(params, paramIndex)));
+        ConditionType condition = static_cast<ConditionType>(atoi(getNextParam(params, paramIndex)));
+        ComparisonType comparison = static_cast<ComparisonType>(atoi(getNextParam(params, paramIndex)));
+        float value = atof(getNextParam(params, paramIndex));
+        uint8_t days = atoi(getNextParam(params, paramIndex));
+        uint16_t startTime = atoi(getNextParam(params, paramIndex));
+        uint16_t endTime = atoi(getNextParam(params, paramIndex));
 
-        commaIndex2 = params.indexOf(',');
-        String condition = params.substring(0, commaIndex2);
-        params = params.substring(commaIndex2 + 1);
-
-        commaIndex2 = params.indexOf(',');
-        String comparison = params.substring(0, commaIndex2);
-        params = params.substring(commaIndex2 + 1);
-
-        commaIndex2 = params.indexOf(',');
-        float value = params.substring(0, commaIndex2).toFloat();
-        params = params.substring(commaIndex2 + 1);
-
-        commaIndex2 = params.indexOf(',');
-        String days = params.substring(0, commaIndex2);
-        params = params.substring(commaIndex2 + 1);
-
-        commaIndex2 = params.indexOf(',');
-        String startTime = params.substring(0, commaIndex2);
-        String endTime = params.substring(commaIndex2 + 1);
-
-        Serial.println("Setting alarm with params: " + sensor + ", " +
-                       condition + ", " + comparison + ", " + String(value) +
-                       ", " + days + ", " + startTime + ", " + endTime);
-        timeManager.setAlarm(sensor, condition, comparison, value, days,
-                             startTime, endTime);
+        timeManager.setAlarm(sensor, condition, comparison, value, days, startTime, endTime);
+    } else if (strcmp(cmdType, "SET_TIME") == 0) {
+        timeManager.setTime(params);
     }
+}
+
+const char* SerialComm::getNextParam(const char* params, int &paramIndex) {
+    const char* nextComma = strchr(params + paramIndex, ',');
+    int length = nextComma ? nextComma - (params + paramIndex) : strlen(params + paramIndex);
+    static char param[20];
+    strncpy(param, params + paramIndex, length);
+    param[length] = '\0';
+    paramIndex += length + 1;
+    return param;
 }
